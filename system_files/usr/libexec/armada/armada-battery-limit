@@ -1,0 +1,84 @@
+#!/bin/bash
+# armada-battery-limit: clamps charge current once capacity reaches a
+# configured ceiling, releasing a few points below it, to slow long-term
+# battery wear. Ported from MgeeeeK/thor-armada's thor-charge-limit
+# (fixed at 80%, no configuration) into a configurable service driven by
+# Armada Control.
+#
+# AYN's firmware reads charge_control_end_threshold but the stock qcom_battmgr
+# driver doesn't enforce it -- charge_control_limit (current-clamping) is
+# what actually works, and only exists with a patched qcom_battmgr kernel
+# module. Exits cleanly (not an error) if that node never appears, so this
+# is a silent no-op on the stock Armada kernel rather than a failed unit.
+set -u
+
+CONFIG=/etc/armada/battery-limit.conf
+B=/sys/class/power_supply/battery
+U=/sys/class/power_supply/qcom-battmgr-usb
+LIM="$B/charge_control_limit"
+MAX="$B/charge_control_limit_max"
+CLAMP_CURRENT=1000       # uA -- effectively a trickle, matches the reference script
+RELEASE_MARGIN=3         # percentage points below the limit before resuming full current
+POLL_INTERVAL=30
+WAIT_FOR_KERNEL_SECS=120
+
+log() {
+    systemd-cat -t armada-battery-limit -p info <<<"$*" 2>/dev/null || true
+}
+
+read_config() {
+    enabled=0
+    limit=80
+    [[ -f "$CONFIG" ]] || return 0
+    while IFS='=' read -r key value; do
+        case "$key" in
+            enabled) enabled="$value" ;;
+            limit) limit="$value" ;;
+        esac
+    done < "$CONFIG"
+}
+
+for (( i = 0; i < WAIT_FOR_KERNEL_SECS; i += 2 )); do
+    [[ -e "$LIM" && -e "$U/online" ]] && break
+    sleep 2
+done
+if [[ ! -e "$LIM" ]]; then
+    log "no charge_control_limit sysfs node after ${WAIT_FOR_KERNEL_SECS}s -- patched qcom_battmgr not loaded, exiting"
+    exit 0
+fi
+
+max_current=$(cat "$MAX" 2>/dev/null || echo 9000000)
+state=released
+
+release() {
+    echo "$max_current" > "$LIM" 2>/dev/null && state=released
+}
+clamp() {
+    echo "$CLAMP_CURRENT" > "$LIM" 2>/dev/null && state=clamped
+}
+
+trap 'release; exit 0' TERM INT
+
+while true; do
+    read_config
+
+    if [[ "$enabled" != "1" ]]; then
+        [[ "$state" == clamped ]] && { release; log "disabled -- released"; }
+        sleep "$POLL_INTERVAL"
+        continue
+    fi
+
+    cap=$(cat "$B/capacity" 2>/dev/null) || { sleep "$POLL_INTERVAL"; continue; }
+    on=$(cat "$U/online" 2>/dev/null) || { sleep "$POLL_INTERVAL"; continue; }
+    release_at=$(( limit - RELEASE_MARGIN ))
+
+    if [[ "$state" == released && "$on" == 1 && "$cap" -ge "$limit" ]]; then
+        clamp
+        log "clamped at ${cap}% (limit ${limit}%)"
+    elif [[ "$state" == clamped ]] && { [[ "$on" != 1 ]] || [[ "$cap" -le "$release_at" ]]; }; then
+        release
+        log "released at ${cap}%"
+    fi
+
+    sleep "$POLL_INTERVAL"
+done

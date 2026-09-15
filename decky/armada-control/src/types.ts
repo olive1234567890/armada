@@ -112,6 +112,9 @@ export interface Config {
   trackpadEnabled: boolean;
   trackpadSensitivity: number;
   trackpadGlide: boolean;
+  batteryLimitSupported: boolean;
+  batteryLimitEnabled: boolean;
+  batteryLimit: number;
   sshEnabled: boolean;
   mtpEnabled: boolean;
   desktopMode: string;

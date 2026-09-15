@@ -5,6 +5,7 @@ from .steam import installed_games
 from .system import (
     abl_auto_enabled,
     abl_version,
+    battery_limit,
     bottom_screen_brightness,
     bottom_screen_enabled,
     device_env,
@@ -29,6 +30,7 @@ def build_config(include_games=True):
         env.get("ARMADA_SECONDARY_CONNECTOR") and env.get("ARMADA_SECONDARY_TOUCHSCREEN")
     )
     trackpad = trackpad_settings()
+    battery = battery_limit()
     return {
         "power": parse_power(),
         "powerDefaults": factory_power_defaults(),
@@ -54,6 +56,9 @@ def build_config(include_games=True):
         "trackpadEnabled": trackpad_enabled(),
         "trackpadSensitivity": trackpad["sensitivity"],
         "trackpadGlide": trackpad["glide"],
+        "batteryLimitSupported": battery["supported"],
+        "batteryLimitEnabled": battery["enabled"],
+        "batteryLimit": battery["limit"],
         "sshEnabled": ssh_enabled(),
         "mtpEnabled": mtp_enabled(),
         "desktopMode": desktop_mode(),

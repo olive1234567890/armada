@@ -24,6 +24,8 @@ export const setBottomScreenBrightness = (brightness: number) => call<[number], 
 export const setTrackpadEnabled = (enabled: boolean) => call<[boolean], boolean>("set_trackpad_enabled", enabled);
 export const setTrackpadSettings = (sensitivity: number, glide: boolean) =>
   call<[number, boolean], { sensitivity: number; glide: boolean }>("set_trackpad_settings", sensitivity, glide);
+export const setBatteryLimit = (enabled: boolean, limit: number) =>
+  call<[boolean, number], { enabled: boolean; limit: number }>("set_battery_limit", enabled, limit);
 export const setDesktopMode = (value: string) => call<[string], string>("set_desktop_mode", value);
 export const setSleepMode = (value: string) => call<[string], string>("set_sleep_mode", value);
 export const reapplyPerf = () => call<[], { pids?: number }>("reapply_perf");

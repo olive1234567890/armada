@@ -16,6 +16,7 @@ from armada_control.system import (
     reapply_perf,
     restart_game_mode,
     set_abl_auto_enabled,
+    set_battery_limit,
     set_bottom_screen_brightness,
     set_bottom_screen_enabled,
     set_trackpad_enabled,
@@ -75,6 +76,9 @@ class Plugin:
 
     async def set_trackpad_settings(self, sensitivity, glide):
         return await asyncio.to_thread(set_trackpad_settings, sensitivity, glide)
+
+    async def set_battery_limit(self, enabled, limit):
+        return await asyncio.to_thread(set_battery_limit, enabled, limit)
 
     async def set_desktop_mode(self, value):
         return await asyncio.to_thread(set_desktop_mode, value)

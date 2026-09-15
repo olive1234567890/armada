@@ -1,0 +1,12 @@
+[Unit]
+Description=Armada battery charge limit (current-clamping)
+After=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/usr/libexec/armada/armada-battery-limit
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

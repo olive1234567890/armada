@@ -166,6 +166,26 @@ def set_trackpad_settings(sensitivity, glide):
     }
 
 
+def battery_limit():
+    try:
+        result = call("get_battery_limit")
+        return {
+            "supported": bool(result.get("supported")),
+            "enabled": bool(result.get("enabled")),
+            "limit": int(result.get("limit", 80)),
+        }
+    except Exception:
+        return {"supported": False, "enabled": False, "limit": 80}
+
+
+def set_battery_limit(enabled, limit):
+    result = call("set_battery_limit", enabled=bool(enabled), limit=int(limit))
+    return {
+        "enabled": bool(result.get("enabled", enabled)),
+        "limit": int(result.get("limit", limit)),
+    }
+
+
 def desktop_mode() -> str:
     try:
         value = str(call("get_desktop_mode").get("value", ""))

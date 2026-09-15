@@ -46,6 +46,11 @@ TRACKPAD_CONFIG = Path("/etc/armada/trackpad.conf")
 TRACKPAD_SENSITIVITY_MIN = 0.1
 TRACKPAD_SENSITIVITY_MAX = 5.0
 TRACKPAD_SENSITIVITY_DEFAULT = 1.0
+BATTERY_LIMIT_CONFIG = Path("/etc/armada/battery-limit.conf")
+BATTERY_LIMIT_KERNEL_NODE = Path("/sys/class/power_supply/battery/charge_control_limit")
+BATTERY_LIMIT_MIN = 50
+BATTERY_LIMIT_MAX = 100
+BATTERY_LIMIT_DEFAULT = 80
 BACKLIGHT_ROOT = Path("/sys/class/backlight")
 DEVICE_ENV = os.environ.get("ARMADA_DEVICE_ENV", "/usr/libexec/armada/device-env")
 CONFIG_PATHS = {
@@ -310,6 +315,29 @@ def restore_bottom_screen_brightness(path=None):
         pass
 
 
+def battery_limit_supported():
+    # Only present with the patched qcom_battmgr kernel module -- the stock
+    # kernel's charge_control_end_threshold exists but isn't enforced.
+    return BATTERY_LIMIT_KERNEL_NODE.exists()
+
+
+def battery_limit_settings():
+    enabled, limit = False, BATTERY_LIMIT_DEFAULT
+    try:
+        for line in BATTERY_LIMIT_CONFIG.read_text().splitlines():
+            key, _, value = line.strip().partition("=")
+            if key == "enabled":
+                enabled = value == "1"
+            elif key == "limit":
+                try:
+                    limit = max(BATTERY_LIMIT_MIN, min(BATTERY_LIMIT_MAX, int(value)))
+                except ValueError:
+                    pass
+    except OSError:
+        pass
+    return {"enabled": enabled, "limit": limit}
+
+
 def trackpad_supported():
     # Same physical requirement as the Plasma Mobile bottom screen: they
     # share the one DRM-leased connector.
@@ -529,6 +557,28 @@ def action_set_trackpad_settings(request):
 
     atomic_write(TRACKPAD_CONFIG, f"sensitivity={sensitivity}\nglide={int(glide)}\n")
     return trackpad_settings()
+
+
+def action_get_battery_limit(request):
+    settings = battery_limit_settings()
+    settings["supported"] = battery_limit_supported()
+    return settings
+
+
+def action_set_battery_limit(request):
+    enabled = request.get("enabled")
+    limit = request.get("limit")
+    if not isinstance(enabled, bool):
+        raise ValueError("invalid battery limit enabled state")
+    if not isinstance(limit, int) or isinstance(limit, bool) or not BATTERY_LIMIT_MIN <= limit <= BATTERY_LIMIT_MAX:
+        raise ValueError("invalid battery limit value")
+    if enabled and not battery_limit_supported():
+        raise RuntimeError("battery charge limiting is not supported on this device")
+
+    atomic_write(BATTERY_LIMIT_CONFIG, f"enabled={int(enabled)}\nlimit={limit}\n")
+    settings = battery_limit_settings()
+    settings["supported"] = battery_limit_supported()
+    return settings
 
 
 def action_get_abl_version(request):
@@ -801,6 +851,7 @@ ACTIONS = {
     "get_bottom_screen_brightness": action_get_bottom_screen_brightness,
     "get_trackpad_enabled": action_get_trackpad_enabled,
     "get_trackpad_settings": action_get_trackpad_settings,
+    "get_battery_limit": action_get_battery_limit,
     "get_abl_version": action_get_abl_version,
     "get_rgb": action_get_rgb,
     "set_rgb": action_set_rgb,
@@ -814,6 +865,7 @@ ACTIONS = {
     "set_bottom_screen_brightness": action_set_bottom_screen_brightness,
     "set_trackpad_enabled": action_set_trackpad_enabled,
     "set_trackpad_settings": action_set_trackpad_settings,
+    "set_battery_limit": action_set_battery_limit,
     "set_abl_auto_enabled": action_set_abl_auto_enabled,
     "get_desktop_mode": action_get_desktop_mode,
     "set_desktop_mode": action_set_desktop_mode,

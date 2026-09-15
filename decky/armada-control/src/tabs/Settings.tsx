@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import {
   setAblAutoEnabled as applyAblAutoEnabled,
+  setBatteryLimit as applyBatteryLimit,
   setBottomScreenBrightness as applyBottomScreenBrightness,
   setBottomScreenEnabled as applyBottomScreenEnabled,
   setControllerType as applyControllerType,
@@ -20,6 +21,7 @@ import type { Config } from "../types";
 
 const BOTTOM_SCREEN_BRIGHTNESS_DELAY_MS: number = 150;
 const TRACKPAD_SENSITIVITY_DELAY_MS: number = 150;
+const BATTERY_LIMIT_DELAY_MS: number = 300;
 
 export function Settings({ config, setConfig }: {
   config: Config;
@@ -31,12 +33,17 @@ export function Settings({ config, setConfig }: {
   const trackpadSensitivityTimer = useRef<number | undefined>(undefined);
   const trackpadSensitivityRequest = useRef<number>(0);
   const appliedTrackpadSensitivity = useRef<number>(config.trackpadSensitivity);
+  const batteryLimitTimer = useRef<number | undefined>(undefined);
+  const batteryLimitRequest = useRef<number>(0);
+  const appliedBatteryLimit = useRef<number>(config.batteryLimit);
 
   useEffect(() => () => {
     window.clearTimeout(bottomScreenBrightnessTimer.current);
     bottomScreenBrightnessRequest.current += 1;
     window.clearTimeout(trackpadSensitivityTimer.current);
     trackpadSensitivityRequest.current += 1;
+    window.clearTimeout(batteryLimitTimer.current);
+    batteryLimitRequest.current += 1;
   }, []);
 
   const setSshEnabled = async (enabled: boolean) => {
@@ -170,6 +177,43 @@ export function Settings({ config, setConfig }: {
       }
     }, TRACKPAD_SENSITIVITY_DELAY_MS);
   };
+  const setBatteryLimitEnabled = async (enabled: boolean) => {
+    if (enabled === !!config.batteryLimitEnabled) {
+      return;
+    }
+    setConfig((current) => (current ? { ...current, batteryLimitEnabled: enabled } : current));
+    try {
+      const applied = await applyBatteryLimit(enabled, config.batteryLimit);
+      setConfig((current) => (current ? {
+        ...current,
+        batteryLimitEnabled: applied.enabled,
+        batteryLimit: applied.limit,
+      } : current));
+    } catch (error) {
+      setConfig((current) => (current ? { ...current, batteryLimitEnabled: !enabled } : current));
+      toaster.toast({ title: "Could not change battery charge limit", body: String(error) });
+    }
+  };
+  const setBatteryLimit = (limit: number) => {
+    setConfig((current) => (current ? { ...current, batteryLimit: limit } : current));
+    window.clearTimeout(batteryLimitTimer.current);
+    const request = ++batteryLimitRequest.current;
+    batteryLimitTimer.current = window.setTimeout(async () => {
+      try {
+        const applied = await applyBatteryLimit(!!config.batteryLimitEnabled, limit);
+        if (request !== batteryLimitRequest.current) return;
+        appliedBatteryLimit.current = applied.limit;
+        setConfig((current) => (current ? { ...current, batteryLimit: applied.limit } : current));
+      } catch (error) {
+        if (request !== batteryLimitRequest.current) return;
+        setConfig((current) => (current ? {
+          ...current,
+          batteryLimit: appliedBatteryLimit.current,
+        } : current));
+        toaster.toast({ title: "Could not change battery charge limit", body: String(error) });
+      }
+    }, BATTERY_LIMIT_DELAY_MS);
+  };
   const setDesktopMode = async (value: string) => {
     const previous = config.desktopMode || "desktop";
     setConfig((current: Config | null) => (current ? { ...current, desktopMode: value } : current));
@@ -211,6 +255,26 @@ export function Settings({ config, setConfig }: {
           onChange={setSleepMode}
         />
         <ToggleRow label="Enable SSH" value={!!config.sshEnabled} onChange={setSshEnabled} />
+        {config.batteryLimitSupported && (
+          <>
+            <ToggleRow
+              label="Battery Charge Limit"
+              description="Stop charging past this level to slow long-term battery wear"
+              value={!!config.batteryLimitEnabled}
+              onChange={setBatteryLimitEnabled}
+            />
+            {config.batteryLimitEnabled && (
+              <SliderEdit
+                label="Charge Limit"
+                value={config.batteryLimit}
+                min={50}
+                max={100}
+                step={5}
+                onChange={setBatteryLimit}
+              />
+            )}
+          </>
+        )}
         <Field label="OS Version" description={config.osVersion || "unknown"} />
         <Field label="ABL Version" description={config.ablVersion || "unknown"} />
       </PanelSection>
