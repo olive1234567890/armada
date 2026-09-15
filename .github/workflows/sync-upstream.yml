@@ -1,0 +1,88 @@
+---
+name: Sync upstream Armada
+
+# Keeps this fork's olive-os branch caught up with armada-os/armada:main.
+# Runs weekly, plus manual dispatch for "I heard about an update, check now".
+#
+# Merges only if it's clean (no conflicts) -- personal changes here are all
+# additive (new files, a few isolated edits), so most upstream updates
+# should merge fine. If upstream ever touches the same lines (most likely
+# the Containerfile, since both this fork and upstream edit KERNEL_PKG),
+# the merge step fails loudly and this workflow run shows as failed --
+# that's the signal to go look, not something to guess through silently.
+#
+# On a clean merge, also triggers a full image + disk rebuild automatically
+# so there's always a ready-to-flash .img.gz reflecting the latest sync.
+
+on:
+  schedule:
+    - cron: "17 3 * * 1"  # every Monday, off the hour
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out olive-os
+        uses: actions/checkout@v4
+        with:
+          ref: olive-os
+          fetch-depth: 0
+
+      - name: Configure git identity
+        run: |
+          git config user.name "olive-os-sync[bot]"
+          git config user.email "olive-os-sync@users.noreply.github.com"
+
+      - name: Fetch upstream
+        run: git remote add upstream https://github.com/armada-os/armada.git && git fetch upstream main
+
+      - name: Merge upstream/main
+        id: merge
+        run: |
+          set -euo pipefail
+          before=$(git rev-parse HEAD)
+          if git merge upstream/main --no-edit; then
+            after=$(git rev-parse HEAD)
+            if [ "$before" = "$after" ]; then
+              echo "changed=false" >> "$GITHUB_OUTPUT"
+              echo "Already up to date."
+            else
+              echo "changed=true" >> "$GITHUB_OUTPUT"
+              echo "Merged cleanly: $before -> $after"
+            fi
+          else
+            echo "::error::Merge conflict with upstream/main -- resolve manually (git fetch upstream && git merge upstream/main on olive-os locally), the auto-sync won't guess through this."
+            git merge --abort
+            exit 1
+          fi
+
+      - name: Push merged branch
+        if: steps.merge.outputs.changed == 'true'
+        run: git push origin olive-os
+
+      - name: Trigger image rebuild
+        if: steps.merge.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        # Explicit branch=olive-os so the published container tag is
+        # ghcr.io/<you>/armada:olive-os, not the "testing" default that
+        # results from leaving it empty -- keeps it unambiguous from
+        # upstream's own testing channel even though it's a separate
+        # registry namespace.
+        run: gh workflow run build.yml --ref olive-os --field branch=olive-os
+
+      - name: Wait for image build, then build the disk image
+        if: steps.merge.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          sleep 15
+          run_id=$(gh run list --workflow=build.yml --branch=olive-os --limit=1 --json databaseId -q '.[0].databaseId')
+          gh run watch "$run_id" --exit-status
+          gh workflow run build-disk.yml --ref olive-os --field custom_tag=olive-os
