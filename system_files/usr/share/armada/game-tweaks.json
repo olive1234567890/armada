@@ -18,6 +18,18 @@
     "wineTopology": true
   },
   "games": {
+    "2868840": {
+      "fexProfile": "custom",
+      "fexConfig": {
+        "TSOEnabled": "1",
+        "X87ReducedPrecision": "1",
+        "Multiblock": "1",
+        "VectorTSOEnabled": "0",
+        "MemcpySetTSOEnabled": "0",
+        "HalfBarrierTSOEnabled": "1",
+        "HostFeatures": "disableavx"
+      }
+    },
     "292030": { "powerProfile": "performance" },
     "8190": { "powerProfile": "performance" },
     "1934680": { "powerProfile": "performance" },
