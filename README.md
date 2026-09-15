@@ -97,3 +97,4 @@ created by [Rax](https://github.com/Raxcoms).
 
 Armada's own code is licensed under **GPL-2.0-or-later**. Bundled components
 retain their upstream licenses. See [LICENSE.md](LICENSE.md).
+
