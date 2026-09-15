@@ -6,7 +6,7 @@ import { clone, titleCase, update } from "../lib/util";
 import type { Config, PowerProfile } from "../types";
 
 const underclocks = [
-  { data: "none", label: "None" },
+  { data: "none", label: "Stock" },
   { data: "small", label: "Small" },
   { data: "medium", label: "Medium" },
   { data: "large", label: "Large" },
@@ -55,16 +55,8 @@ export function Power({ config, setConfig }: { config: Config; setConfig: Dispat
       </PanelSection>
       <PanelSection title="PROFILE SETTINGS">
         <SelectEdit label="Fan Curve" value={p.fan_curve} options={fanCurves} onChange={(v) => setProfileValue("fan_curve", v)} />
-        {(config.perf?.governors?.length ?? 0) > 0 ? (
-          <SelectEdit
-            label="CPU Governor"
-            value={p.cpu_governor}
-            options={config.perf!.governors.map((g) => ({ data: g, label: titleCase(g) }))}
-            onChange={(v) => setProfileValue("cpu_governor", v)}
-          />
-        ) : null}
         {supportsUnderclockPresets ? (
-          <SelectEdit label="CPU Underclock" value={underclockLevel} options={underclocks} onChange={(v) => setProfileValue("cpu_underclock", v)} />
+          <SelectEdit label="CPU" value={underclockLevel} options={underclocks} onChange={(v) => setProfileValue("cpu_underclock", v)} />
         ) : (
           <SliderEdit label="CPU Max (%)" value={Math.round(Number(p.cpu_max || 0) * 100)} min={35} max={100} step={1} onChange={(v) => setProfileValue("cpu_max", (v / 100).toFixed(2))} />
         )}
