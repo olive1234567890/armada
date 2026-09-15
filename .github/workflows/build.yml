@@ -88,12 +88,11 @@ jobs:
           done
           [ -z "$need" ] || { sudo apt-get update && sudo apt-get install -y $need; }
 
-      - name: Require signing key before publishing a channel
+      - name: Warn if publishing unsigned (personal fork, single-device use)
         if: github.event_name != 'pull_request'
         run: |
           if [ -z "${{ secrets.SIGNING_SECRET }}" ]; then
-            echo "::error::SIGNING_SECRET is not set — refusing to publish an unsigned image (devices verify ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }})."
-            exit 1
+            echo "::warning::SIGNING_SECRET is not set -- publishing unsigned. Fine for a personal fork you flash yourself (the device already boots from ostree-unverified-registry on first install); add SIGNING_SECRET as a repo secret later if this image is ever shared or auto-updated to from a source you don't fully trust."
           fi
 
       - name: Checkout
