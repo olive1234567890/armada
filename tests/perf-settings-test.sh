@@ -328,7 +328,7 @@ power = powerd.ArmadaPower.__new__(powerd.ArmadaPower)
 parsed = power.parse_config()
 (default_profile, underclocks, fan_curves, profile_config, fan_config,
  suspend_config, system_config) = parsed
-check("factory default profile", default_profile == "balanced")
+check("factory default profile", default_profile == "eco")
 check("factory has 3 fan curves", len(fan_curves) == 3)
 check("profiles keep governor", profile_config["performance"]["cpu_governor"] == "performance")
 check("no [system] -> irq auto", system_config["irq_cores"] == "auto")

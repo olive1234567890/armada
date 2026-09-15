@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import configparser
 import grp
 import json
 import os
@@ -59,6 +60,18 @@ CONFIG_PATHS = {
     "calibration": Path("/etc/armada/input-calibration.json"),
     "compat-applied": Path("/var/lib/armada/compat-applied.json"),
 }
+FACTORY_POWER_CONFIG = Path("/usr/share/armada/power-profiles.conf")
+GAME_POWER_PROFILES = ("eco", "balanced", "performance")
+
+
+def default_power_profile():
+    parser = configparser.ConfigParser()
+    parser.read([FACTORY_POWER_CONFIG, CONFIG_PATHS["power"]])
+    try:
+        value = parser.get("general", "default_profile").strip().lower()
+    except (configparser.Error, KeyError):
+        return "eco"
+    return value if value in GAME_POWER_PROFILES else "eco"
 PERF = None
 CALIBRATION_PARAMS = (
     "axis_leftx_min",
@@ -756,6 +769,7 @@ class PerfManager:
         if generation is not None and generation != self.pidfd_gen:
             return
         self.disarm_pidfd()
+        self.revert_power_profile_if_applied(armada_perf.read_state())
         self.refresh()
 
     def steam_session_pid(self, pid, appid):
@@ -784,6 +798,18 @@ class PerfManager:
             current = ppid
         return match if match is not None else pid
 
+    def revert_power_profile_if_applied(self, state):
+        # A tagged game's forced profile must not survive it: applies on
+        # both a clean exit and a same-daemon game switch (arm_pidfd
+        # displaces the old pidfd without going through game_exited).
+        old_override = state.get("override")
+        if not (isinstance(old_override, dict) and old_override.get("powerProfileApplied")):
+            return
+        try:
+            run(["/usr/bin/armada-power", "profile", default_power_profile()], timeout=10)
+        except (subprocess.SubprocessError, OSError):
+            pass
+
     def game_launched(self, appid, pid):
         tweaks = armada_game_tweaks.load()
         merged = armada_game_tweaks.merged_settings(tweaks, appid)
@@ -800,7 +826,18 @@ class PerfManager:
         session_pid = self.steam_session_pid(pid, appid)
         override = self.gamescope_layer(merged)
         override.update({"appid": appid, "pid": session_pid})
+
         state = armada_perf.read_state()
+        self.revert_power_profile_if_applied(state)
+
+        power_profile = merged.get("powerProfile")
+        if power_profile in GAME_POWER_PROFILES:
+            try:
+                run(["/usr/bin/armada-power", "profile", power_profile], timeout=10)
+                override["powerProfileApplied"] = True
+            except (subprocess.SubprocessError, OSError):
+                pass
+
         if self.arm_pidfd(session_pid):
             state["override"] = override
             armada_perf.write_state(state)

@@ -16,5 +16,19 @@
       "asound": true
     },
     "wineTopology": true
+  },
+  "games": {
+    "292030": { "powerProfile": "performance" },
+    "8190": { "powerProfile": "performance" },
+    "1934680": { "powerProfile": "performance" },
+    "3812600": { "powerProfile": "performance" },
+    "834530": { "powerProfile": "balanced" },
+    "459220": { "powerProfile": "balanced" },
+    "288470": { "powerProfile": "balanced" },
+    "813780": { "powerProfile": "balanced" },
+    "8930": { "powerProfile": "balanced" },
+    "32470": { "powerProfile": "balanced" },
+    "2006140": { "powerProfile": "balanced" },
+    "3441990": { "powerProfile": "balanced" }
   }
 }

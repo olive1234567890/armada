@@ -43,7 +43,7 @@ import type { Config } from "../types";
 
 const PERF_KEYS = [
   "cores", "wineTopology", "nice", "gamescopeCores",
-  "gamescopeNice", "gamescopeRr", "scheduler",
+  "gamescopeNice", "gamescopeRr", "scheduler", "powerProfile",
 ];
 
 function cpulistError(text: string, cpuCount: number): string {
@@ -669,6 +669,24 @@ export function Compatibility({ config, setConfig }: { config: Config; setConfig
   const perfControls = (
     <>
       <div className="armada-subheader">Game</div>
+      {!editingDefault ? (
+        <>
+          <SelectEdit
+            label="Power Profile"
+            value={String(values.powerProfile ?? "")}
+            options={[
+              { data: "", label: "Inherit (system default)" },
+              { data: "eco", label: "Eco" },
+              { data: "balanced", label: "Balanced" },
+              { data: "performance", label: "Performance" },
+            ]}
+            onChange={(v) => patchSettings({ powerProfile: v || undefined })}
+          />
+          <div className="armada-field-note">
+            Applied automatically while this game is running, then reverts to the system default profile when it closes.
+          </div>
+        </>
+      ) : null}
       <SelectEdit label="CPU Cores" value={coresIsCustom ? "custom" : coresValue} options={coreOptions} onChange={onSelectCores} />
       {coresIsCustom ? (
         <PanelSectionRow>
