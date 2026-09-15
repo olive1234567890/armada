@@ -30,6 +30,7 @@
         "HostFeatures": "disableavx"
       }
     },
+    "1801520": { "powerProfile": "performance" },
     "292030": { "powerProfile": "performance" },
     "8190": { "powerProfile": "performance" },
     "1934680": { "powerProfile": "performance" },
