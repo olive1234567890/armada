@@ -287,7 +287,13 @@ jobs:
           COSIGN_PRIVATE_KEY: ${{ secrets.SIGNING_SECRET }}
 
       - name: Publish channel tags
-        if: github.event_name != 'pull_request' && env.HAVE_SIGNING_SECRET == 'true'
+        # Upstream gates this on HAVE_SIGNING_SECRET so a named channel tag
+        # (testing/beta/stable) can never point at an unsigned build. That
+        # guarantee doesn't apply the same way to a personal fork with no
+        # other consumers -- and without it, the friendly tag (e.g.
+        # olive-os) never gets created at all, only the digest-suffixed
+        # build tag from the push step, which nothing else references.
+        if: github.event_name != 'pull_request'
         run: |
           set -euo pipefail
           IMAGE_FULL="${IMAGE_REGISTRY}/${IMAGE_NAME}"
@@ -303,5 +309,3 @@ jobs:
               exit 1
             fi
           done
-        env:
-          HAVE_SIGNING_SECRET: ${{ secrets.SIGNING_SECRET != '' }}
