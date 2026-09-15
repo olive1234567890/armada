@@ -86,3 +86,4 @@ jobs:
           run_id=$(gh run list --workflow=build.yml --branch=olive-os --limit=1 --json databaseId -q '.[0].databaseId')
           gh run watch "$run_id" --exit-status
           gh workflow run build-disk.yml --ref olive-os --field custom_tag=olive-os
+
